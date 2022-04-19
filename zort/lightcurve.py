@@ -100,8 +100,10 @@ class Lightcurve:
         """
         Loads the lightcurve from a lightcurve file, starting at the location
         of the object. The default is to apply a mask to any observations with
-        a catflags >= 32768, following the recommendation of the ZTF Public Data
-        Release website.
+        a catflags > 0, following the recommendation of the ZTF Public Data
+        Release website and ZTF documentation. Note that the public release
+        website alone only recommends catflag >= 32768 (clouds/moon); but 
+        newer documentation recommends >0 (all bad things). 
         """
 
         # Open file containing the lightcurve
@@ -139,7 +141,7 @@ class Lightcurve:
 
         # Apply the quality cut mask
         if self.apply_catmask:
-            mask = data['catflags'] >= 32768
+            mask = data['catflags'] > 0
             data = data[~mask]
 
         # Remove points with bad values
