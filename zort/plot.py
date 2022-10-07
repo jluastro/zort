@@ -11,20 +11,24 @@ from zort.fit import return_mag_model
 
 
 def _plot_axis(ax, object, hmjd_min, hmjd_max, insert_radius,
-               object_model_params=None):
+               object_model_params=None, object_model=None):
     if object.color == 'i':
         color = 'k'
     else:
         color = object.color
 
     if object_model_params:
-        t0 = object_model_params['t_0']
-        t_eff = object_model_params['t_E']
-        a_type = object_model_params['a_type']
-        f0 = object_model_params['f_0']
-        f1 = object_model_params['f_1']
-        t_fit = np.linspace(hmjd_min-insert_radius, hmjd_max+insert_radius, 1000)
-        mag_model = return_mag_model(t_fit, t0, t_eff, a_type, f0, f1)
+        t_fit = np.linspace(hmjd_min - insert_radius, hmjd_max + insert_radius, 10000)
+        if object_model:
+            model = object_model(**object_model_params)
+            mag_model = model.get_photometry(t_fit)
+        else:
+            t0 = object_model_params['t_0']
+            t_eff = object_model_params['t_E']
+            a_type = object_model_params['a_type']
+            f0 = object_model_params['f_0']
+            f1 = object_model_params['f_1']
+            mag_model = return_mag_model(t_fit, t0, t_eff, a_type, f0, f1)
         for a in ax:
             a.plot(t_fit, mag_model, color='k', alpha=.3)
 
@@ -56,9 +60,14 @@ def _plot_axis(ax, object, hmjd_min, hmjd_max, insert_radius,
     ax[1].set_facecolor((.8, .8, .8, .35))
 
 
-def plot_object(filename, object, insert_radius=30, model_params=None):
-    hmjd_min = np.min(object.lightcurve.hmjd) - 10
-    hmjd_max = np.max(object.lightcurve.hmjd) + 10
+def plot_object(filename, object, insert_radius=30,
+                model_params=None, model=None, hmjd_survey_bounds=False):
+    if hmjd_survey_bounds:
+        hmjd_min = 58194.0
+        hmjd_max = 59243.0
+    else:
+        hmjd_min = np.min(object.lightcurve.hmjd) - 10
+        hmjd_max = np.max(object.lightcurve.hmjd) + 10
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 4))
     fig.subplots_adjust(hspace=0.4)
@@ -69,7 +78,8 @@ def plot_object(filename, object, insert_radius=30, model_params=None):
         object_model_params = model_params[object.color]
 
     _plot_axis(ax, object, hmjd_min, hmjd_max, insert_radius,
-               object_model_params=object_model_params)
+               object_model_params=object_model_params,
+               object_model=model)
 
     fig.savefig(filename, dpi=300, bbox_inches='tight', pad_inches=0.05)
     print('---- Lightcurve saved: %s' % filename)
@@ -78,15 +88,18 @@ def plot_object(filename, object, insert_radius=30, model_params=None):
 
 def plot_objects(filename, object_g=None, object_r=None,
                  object_i=None, insert_radius=30,
-                 model_params=None):
+                 model_params=None, model=None, hmjd_survey_bounds=False):
     if object_g is None and object_r is None and object_i is None:
         raise Exception('At least one object must be set to generate lightcurves.')
 
     objects = [object_g, object_r, object_i]
     objects = [obj for obj in objects if obj is not None]
+    objects = [obj for obj in objects if obj.lightcurve.nepochs > 1]
 
     if len(objects) == 1:
-        plot_object(filename, objects[0], model_params=model_params)
+        plot_object(filename, objects[0],
+                    model_params=model_params, model=model,
+                    hmjd_survey_bounds=hmjd_survey_bounds)
         return
     elif len(objects) == 2:
         N_rows = 2
@@ -95,8 +108,12 @@ def plot_objects(filename, object_g=None, object_r=None,
         N_rows = 3
         figsize_height = 9
 
-    hmjd_min = min([o.lightcurve.hmjd.min() for o in objects]) - 10
-    hmjd_max = max([o.lightcurve.hmjd.max() for o in objects]) + 10
+    if hmjd_survey_bounds:
+        hmjd_min = 58194.0
+        hmjd_max = 59243.0
+    else:
+        hmjd_min = min([o.lightcurve.hmjd.min() for o in objects]) - 10
+        hmjd_max = max([o.lightcurve.hmjd.max() for o in objects]) + 10
 
     fig, ax = plt.subplots(N_rows, 2, figsize=(12, figsize_height))
     fig.subplots_adjust(top=0.92)
@@ -108,7 +125,8 @@ def plot_objects(filename, object_g=None, object_r=None,
         else:
             object_model_params = model_params[object.color]
         _plot_axis(ax[i], object, hmjd_min, hmjd_max, insert_radius,
-                   object_model_params=object_model_params)
+                   object_model_params=object_model_params,
+                   object_model=model)
 
     fig.savefig(filename, dpi=300, bbox_inches='tight', pad_inches=0.05)
     print('---- Lightcurves saved: %s' % filename)
